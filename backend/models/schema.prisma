@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  BASE_COMMANDER
+  LOGISTICS_OFFICER
+}
+
+model Base {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  location     String?
+  createdAt    DateTime      @default(now())
+  users        User[]
+  purchases    Purchase[]
+  transfersOut Transfer[]    @relation("TransferFrom")
+  transfersIn  Transfer[]    @relation("TransferTo")
+  assignments  Assignment[]
+  expenditures Expenditure[]
+}
+
+/// baseId is null for ADMIN and required for every other role (enforced in authController).
+model User {
+  id           Int           @id @default(autoincrement())
+  username     String        @unique
+  passwordHash String
+  role         Role
+  baseId       Int?
+  base         Base?         @relation(fields: [baseId], references: [id])
+  createdAt    DateTime      @default(now())
+  purchases    Purchase[]
+  transfers    Transfer[]
+  assignments  Assignment[]
+  expenditures Expenditure[]
+  auditLogs    AuditLog[]
+}
+
+model EquipmentType {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  category     String
+  createdAt    DateTime      @default(now())
+  purchases    Purchase[]
+  transfers    Transfer[]
+  assignments  Assignment[]
+  expenditures Expenditure[]
+}
+
+model Purchase {
+  id              Int           @id @default(autoincrement())
+  baseId          Int
+  base            Base          @relation(fields: [baseId], references: [id])
+  equipmentTypeId Int
+  equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id])
+  quantity        Int
+  purchaseDate    DateTime      @default(now())
+  createdById     Int
+  createdBy       User          @relation(fields: [createdById], references: [id])
+  createdAt       DateTime      @default(now())
+
+  @@index([baseId, equipmentTypeId, purchaseDate])
+}
+
+model Transfer {
+  id              Int           @id @default(autoincrement())
+  fromBaseId      Int
+  fromBase        Base          @relation("TransferFrom", fields: [fromBaseId], references: [id])
+  toBaseId        Int
+  toBase          Base          @relation("TransferTo", fields: [toBaseId], references: [id])
+  equipmentTypeId Int
+  equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id])
+  quantity        Int
+  transferDate    DateTime      @default(now())
+  createdById     Int
+  createdBy       User          @relation(fields: [createdById], references: [id])
+  createdAt       DateTime      @default(now())
+
+  @@index([fromBaseId, equipmentTypeId, transferDate])
+  @@index([toBaseId, equipmentTypeId, transferDate])
+}
+
+model Assignment {
+  id              Int           @id @default(autoincrement())
+  baseId          Int
+  base            Base          @relation(fields: [baseId], references: [id])
+  equipmentTypeId Int
+  equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id])
+  quantity        Int
+  assignedTo      String
+  assignedDate    DateTime      @default(now())
+  createdById     Int
+  createdBy       User          @relation(fields: [createdById], references: [id])
+  createdAt       DateTime      @default(now())
+
+  @@index([baseId, equipmentTypeId, assignedDate])
+}
+
+model Expenditure {
+  id              Int           @id @default(autoincrement())
+  baseId          Int
+  base            Base          @relation(fields: [baseId], references: [id])
+  equipmentTypeId Int
+  equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id])
+  quantity        Int
+  reason          String?
+  expendedDate    DateTime      @default(now())
+  createdById     Int
+  createdBy       User          @relation(fields: [createdById], references: [id])
+  createdAt       DateTime      @default(now())
+
+  @@index([baseId, equipmentTypeId, expendedDate])
+}
+
+/// Written automatically by auditMiddleware for every write request.
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  method      String
+  path        String
+  statusCode  Int
+  ipAddress   String?
+  requestBody Json?
+  durationMs  Int
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

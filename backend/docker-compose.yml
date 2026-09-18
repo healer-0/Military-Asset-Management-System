@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: military_assets_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: military
+      POSTGRES_PASSWORD: military
+      POSTGRES_DB: military_assets
+    ports:
+      - "5435:5432" # 5432-5434 are used by local PostgreSQL installs
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U military -d military_assets"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  db_data:
